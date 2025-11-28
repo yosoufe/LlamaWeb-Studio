@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: llamaweb-backend
+    ports:
+      - "8000:8000"
+      # Expose a range of ports for the spawned model servers
+      - "8001-8010:8001-8010"
+    volumes:
+      - ./models:/models
+      # Mount the app directory for easier development (optional, but good for hot reload if we used --reload)
+      - ./backend/app:/app/app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - MODELS_DIR=/models
+      - HOST_IP=0.0.0.0
+    restart: unless-stopped
