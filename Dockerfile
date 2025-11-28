@@ -7,7 +7,7 @@ FROM nvcr.io/nvidia/pytorch:24.05-py3
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 # Important for CUDA build
-ENV CMAKE_ARGS="-DGGML_CUDA=on -DLLAMA_CUBLAS=on"
+ENV CMAKE_ARGS="-DGGML_CUDA=on"
 ENV FORCE_CMAKE=1
 
 # Install system dependencies
