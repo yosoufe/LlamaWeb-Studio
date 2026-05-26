@@ -1,38 +1,28 @@
-import { useState } from 'react'
 import { DownloadModel } from './components/DownloadModel'
-import { ModelList } from './components/ModelList'
-import { ChatInterface } from './components/ChatInterface'
-import { BrainCircuit } from 'lucide-react'
+import { Download } from 'lucide-react'
 
 function App() {
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  const handleDownloadComplete = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
-
   return (
-    <div className="min-h-screen bg-background text-foreground p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <header className="flex items-center gap-3 border-b pb-6">
-          <div className="p-3 bg-primary rounded-lg">
-            <BrainCircuit className="h-8 w-8 text-primary-foreground" />
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Subtle gradient background */}
+      <div className="fixed inset-0 bg-gradient-to-br from-blue-950/20 via-background to-purple-950/20 pointer-events-none" />
+
+      <div className="relative z-10 max-w-3xl mx-auto px-6 py-10">
+        <header className="flex items-center gap-4 mb-10">
+          <div className="p-3.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg shadow-blue-500/20">
+            <Download className="h-7 w-7 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">LlamaWeb Studio</h1>
-            <p className="text-muted-foreground">Self-hosted AI Cluster Manager</p>
+            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+              HF Model Downloader
+            </h1>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              Download Hugging Face models to your local machine
+            </p>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-8">
-            <DownloadModel onDownloadComplete={handleDownloadComplete} />
-            <ModelList refreshTrigger={refreshTrigger} />
-          </div>
-          <div className="lg:h-[calc(100vh-12rem)]">
-            <ChatInterface />
-          </div>
-        </div>
+        <DownloadModel />
       </div>
     </div>
   )

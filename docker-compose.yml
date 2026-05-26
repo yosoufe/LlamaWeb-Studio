@@ -6,20 +6,10 @@ services:
     container_name: llamaweb-backend
     ports:
       - "8000:8000"
-      # Expose a range of ports for the spawned model servers
-      - "8001-8010:8001-8010"
     volumes:
       - ./models:/models
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     environment:
       - MODELS_DIR=/models
-      - HOST_IP=0.0.0.0
     restart: unless-stopped
 
   frontend:
