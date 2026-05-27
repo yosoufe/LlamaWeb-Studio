@@ -20,22 +20,27 @@ app.add_middleware(
 manager = ModelManager()
 
 
-@app.get("/")
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+# ... around line 23
+@app.get("/api")
 async def root():
-    return {"message": "HF Model Downloader backend is running"}
+    return {"message": "HF Model Downloader API is running"}
 
 
-@app.get("/models")
+@app.get("/api/models")
 async def list_models():
     return manager.list_downloaded_models()
 
 
-@app.get("/tasks")
+@app.get("/api/tasks")
 async def list_tasks():
     return manager.get_tasks()
 
 
-@app.post("/models/download")
+@app.post("/api/models/download")
 async def download_model(req: DownloadRequest, background_tasks: BackgroundTasks):
     # Check if already downloading
     task_id = f"{req.repo_id}/{req.filename}"
@@ -47,14 +52,33 @@ async def download_model(req: DownloadRequest, background_tasks: BackgroundTasks
     return {"status": "started", "task_id": task_id}
 
 
-@app.delete("/models/{filename}")
+@app.delete("/api/models/{filename}")
 async def delete_model(filename: str):
     try:
         manager.delete_model(filename)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-@app.delete("/tasks")
+
+@app.delete("/api/tasks")
 async def clear_tasks():
     manager.clear_tasks()
     return {"status": "success"}
+
+
+# Serve static files from the 'static' directory (compiled frontend)
+# We use a catch-all route for the frontend SPA to handle client-side routing
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        # If the path looks like a direct file request, let FastAPI handle it normally or 404
+        # Otherwise, serve index.html for React Router
+        file_path = os.path.join(STATIC_DIR, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+else:
+    logger.warning(f"Static directory {STATIC_DIR} not found. Frontend will not be served.")

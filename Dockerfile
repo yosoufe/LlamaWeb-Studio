@@ -1,26 +1,36 @@
+# Stage 1: Build the React frontend
+FROM node:20-slim AS frontend-builder
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
+RUN npm run build
 
-# Use a lightweight Python image (no GPU needed)
-FROM python:3.12-slim
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
+# Stage 2: Final image
+FROM python:3.10-slim
 WORKDIR /app
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
-    fastapi \
-    uvicorn \
-    huggingface_hub \
-    pydantic
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy backend requirements
+COPY ./backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r ./requirements.txt
 
 # Copy the backend code
-COPY backend/app /app/app
+COPY ./backend/app ./app
 
-# Expose the API port
-EXPOSE 8000
+# Copy the build artifacts from stage 1
+COPY --from=frontend-builder /app/dist ./app/static
 
-# Command to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Final configuration
+RUN mkdir -p /models
+ENV MODELS_DIR=/models
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 5173
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5173"]

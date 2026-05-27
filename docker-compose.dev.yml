@@ -1,37 +1,17 @@
 version: '3.8'
 
 services:
-  hf-downloader-ui-backend:
+  hf-downloader-ui:
     build: .
-    container_name: hf-downloader-backend
+    container_name: hf-downloader-ui
     ports:
-      - "8000:8000"
+      - "5173:5173"
     volumes:
       - ./models:/models
       - ./backend/app:/app/app
     environment:
       - MODELS_DIR=/models
       - HF_TOKEN=${HF_TOKEN:-}
-    restart: unless-stopped
-
-  hf-downloader-ui-frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    container_name: hf-downloader-frontend
-    ports:
-      - "5173:5173"
-    volumes:
-      # Mount source code for hot-reload during development
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
-      - ./frontend/index.html:/app/index.html
-      - ./frontend/vite.config.ts:/app/vite.config.ts
-      - ./frontend/tailwind.config.js:/app/tailwind.config.js
-      - ./frontend/postcss.config.js:/app/postcss.config.js
-      - ./frontend/tsconfig.json:/app/tsconfig.json
-      - ./frontend/tsconfig.app.json:/app/tsconfig.app.json
-      - ./frontend/tsconfig.node.json:/app/tsconfig.node.json
-    depends_on:
-      - hf-downloader-ui-backend
+    # During dev, we still use --reload for backend changes
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5173", "--reload"]
     restart: unless-stopped
