@@ -1,6 +1,6 @@
 # HF Model Downloader UI
 
-A lightweight, premium web interface for downloading Hugging Face models directly to your local machine. 
+A lightweight, premium web interface for downloading Hugging Face models directly to your local machine. Ideal for self-hosting and TrueNAS users who need a reliable way to manage model downloads in a headless or homelab environment.
 
 ## Project Description
 
@@ -68,12 +68,12 @@ This project is hosted at: [https://github.com/yosoufe/hf-downloader-ui](https:/
 echo $CR_PAT | docker login ghcr.io -u yosoufe --password-stdin
 
 # 2. Build and Tag
-docker build -t ghcr.io/yosoufe/hf-downloader-ui-backend:latest -f Dockerfile .
-docker build -t ghcr.io/yosoufe/hf-downloader-ui-frontend:latest -f Dockerfile.frontend .
+docker build -t ghcr.io/yosoufe/hf-downloader-ui-backend:latest -f Dockerfile . && \
+    docker build -t ghcr.io/yosoufe/hf-downloader-ui-frontend:latest -f Dockerfile.frontend .
 
 # 3. Push
-docker push ghcr.io/yosoufe/hf-downloader-ui-backend:latest
-docker push ghcr.io/yosoufe/hf-downloader-ui-frontend:latest
+docker push ghcr.io/yosoufe/hf-downloader-ui-backend:latest && \
+    docker push ghcr.io/yosoufe/hf-downloader-ui-frontend:latest
 ```
 
 ### 2. Example Production `docker-compose.yml`
@@ -84,7 +84,7 @@ This setup pulls pre-built images from the registry.
 version: '3.8'
 
 services:
-  backend:
+  hf-downloader-ui-backend:
     image: ghcr.io/yosoufe/hf-downloader-ui-backend:latest
     container_name: hf-downloader-backend
     ports:
@@ -93,14 +93,15 @@ services:
       - ./models:/models
     environment:
       - MODELS_DIR=/models
+      - HF_TOKEN=${HF_TOKEN:-}
     restart: unless-stopped
 
-  frontend:
+  hf-downloader-ui-frontend:
     image: ghcr.io/yosoufe/hf-downloader-ui-frontend:latest
     container_name: hf-downloader-frontend
     ports:
       - "5173:5173"
     depends_on:
-      - backend
+      - hf-downloader-ui-backend
     restart: unless-stopped
 ```

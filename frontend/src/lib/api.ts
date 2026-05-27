@@ -38,4 +38,9 @@ export const api = {
         const res = await axios.delete(`${API_BASE}/models/${filename}`);
         return res.data;
     },
+
+    clearTasks: async () => {
+        const res = await axios.delete(`${API_BASE}/tasks`);
+        return res.data;
+    },
 };

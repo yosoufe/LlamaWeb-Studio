@@ -54,3 +54,7 @@ async def delete_model(filename: str):
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+@app.delete("/tasks")
+async def clear_tasks():
+    manager.clear_tasks()
+    return {"status": "success"}

@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  backend:
+  hf-downloader-ui-backend:
     image: ghcr.io/yosoufe/hf-downloader-ui-backend:latest
     container_name: hf-downloader-backend
     ports:
@@ -10,13 +10,14 @@ services:
       - ./models:/models
     environment:
       - MODELS_DIR=/models
+      - HF_TOKEN=${HF_TOKEN:-}
     restart: unless-stopped
 
-  frontend:
+  hf-downloader-ui-frontend:
     image: ghcr.io/yosoufe/hf-downloader-ui-frontend:latest
     container_name: hf-downloader-frontend
     ports:
       - "5173:5173"
     depends_on:
-      - backend
+      - hf-downloader-ui-backend
     restart: unless-stopped

@@ -281,7 +281,7 @@ export function DownloadModel() {
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => handleDelete(model.filename)}
-                                        className="h-8 w-8 text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition-all opacity-0 group-hover:opacity-100"
+                                        className="h-8 w-8 text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition-all"
                                     >
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -294,10 +294,29 @@ export function DownloadModel() {
 
             {/* Recent/Failed Tasks */}
             {recentTasks.length > 0 && (
-                 <div className="space-y-2">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
-                        Recent History
-                    </h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-1">
+                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Recent History
+                        </h3>
+                        {recentTasks.length > 0 && (
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={async () => {
+                                    try {
+                                        await api.clearTasks();
+                                        await fetchTasks();
+                                    } catch (err) {
+                                        console.error('Failed to clear tasks', err);
+                                    }
+                                }}
+                                className="h-6 px-2 text-[10px] text-muted-foreground hover:text-red-400 transition-colors"
+                            >
+                                Clear History
+                            </Button>
+                        )}
+                    </div>
                     <div className="grid gap-2">
                         {recentTasks.map(task => (
                             <div key={task.task_id} className="flex items-center justify-between p-3 rounded-lg border border-border/20 bg-card/40 text-xs">

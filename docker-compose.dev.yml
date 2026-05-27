@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  backend:
+  hf-downloader-ui-backend:
     build: .
     container_name: hf-downloader-backend
     ports:
@@ -11,9 +11,10 @@ services:
       - ./backend/app:/app/app
     environment:
       - MODELS_DIR=/models
+      - HF_TOKEN=${HF_TOKEN:-}
     restart: unless-stopped
 
-  frontend:
+  hf-downloader-ui-frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
@@ -32,5 +33,5 @@ services:
       - ./frontend/tsconfig.app.json:/app/tsconfig.app.json
       - ./frontend/tsconfig.node.json:/app/tsconfig.node.json
     depends_on:
-      - backend
+      - hf-downloader-ui-backend
     restart: unless-stopped

@@ -112,3 +112,9 @@ class ModelManager:
                 del self.tasks[tid]
         else:
             raise Exception("File not found")
+
+    def clear_tasks(self):
+        """Clears finished or failed tasks from history."""
+        to_delete = [tid for tid, t in self.tasks.items() if t.status in ["completed", "failed"]]
+        for tid in to_delete:
+            del self.tasks[tid]
