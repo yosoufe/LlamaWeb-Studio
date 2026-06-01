@@ -6,6 +6,7 @@ export interface ModelInfo {
     filename: string;
     size: number;
     path: string;
+    is_loaded: boolean;
 }
 
 export interface DownloadTask {
@@ -16,6 +17,15 @@ export interface DownloadTask {
     status: 'pending' | 'downloading' | 'completed' | 'failed';
     total_size?: number;
     error?: string;
+}
+
+export interface SystemStats {
+    cpu_percent: number;
+    memory_used: number;
+    memory_total: number;
+    gpu_percent?: number;
+    vram_used?: number;
+    vram_total?: number;
 }
 
 export const api = {
@@ -43,4 +53,19 @@ export const api = {
         const res = await axios.delete(`${API_BASE}/tasks`);
         return res.data;
     },
+    
+    loadModel: async (filename: string) => {
+        const res = await axios.post(`${API_BASE}/models/${filename}/load`);
+        return res.data;
+    },
+    
+    unloadModel: async (filename: string) => {
+        const res = await axios.post(`${API_BASE}/models/${filename}/unload`);
+        return res.data;
+    },
+    
+    systemStats: async () => {
+        const res = await axios.get<SystemStats>(`${API_BASE}/system/stats`);
+        return res.data;
+    }
 };

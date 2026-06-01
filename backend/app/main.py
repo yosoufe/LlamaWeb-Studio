@@ -32,12 +32,35 @@ async def root():
 
 @app.get("/api/models")
 async def list_models():
-    return manager.list_downloaded_models()
+    return await manager.list_downloaded_models()
 
 
 @app.get("/api/tasks")
 async def list_tasks():
     return manager.get_tasks()
+
+
+@app.get("/api/system/stats")
+async def system_stats():
+    return manager.get_system_stats()
+
+
+@app.post("/api/models/{filename}/load")
+async def load_model(filename: str):
+    try:
+        await manager.load_model(filename)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/models/{filename}/unload")
+async def unload_model(filename: str):
+    try:
+        await manager.unload_model(filename)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/models/download")
@@ -69,6 +92,9 @@ async def clear_tasks():
 # Serve static files from the 'static' directory (compiled frontend)
 # We use a catch-all route for the frontend SPA to handle client-side routing
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+if not os.path.exists(STATIC_DIR) and os.path.exists("/app/static"):
+    STATIC_DIR = "/app/static"
+
 if os.path.exists(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 

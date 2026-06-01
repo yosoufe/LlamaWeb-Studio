@@ -7,24 +7,28 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Final image
-FROM python:3.10-slim
+FROM nvidia/cuda:12.2.2-devel-ubuntu22.04
 WORKDIR /app
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    python3 \
+    python3-pip \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy backend requirements
 COPY ./backend/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r ./requirements.txt
+RUN pip3 install --no-cache-dir -r ./requirements.txt
 
 # Copy the backend code
 COPY ./backend/app ./app
 
 # Copy the build artifacts from stage 1
-COPY --from=frontend-builder /app/dist ./app/static
+COPY --from=frontend-builder /app/dist /app/static
 
 # Final configuration
 RUN mkdir -p /models

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
-import type { ModelInfo, DownloadTask } from '@/lib/api';
+import type { ModelInfo, DownloadTask, SystemStats } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Loader2, HardDrive, FileBox, RefreshCw, CheckCircle2, XCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { Download, Loader2, HardDrive, FileBox, RefreshCw, CheckCircle2, XCircle, AlertCircle, Trash2, Activity, Cpu, Play, Square } from 'lucide-react';
 
 export function DownloadModel() {
     const [repoId, setRepoId] = useState('');
@@ -13,7 +13,9 @@ export function DownloadModel() {
     const [error, setError] = useState<string | null>(null);
     const [models, setModels] = useState<ModelInfo[]>([]);
     const [tasks, setTasks] = useState<DownloadTask[]>([]);
+    const [stats, setStats] = useState<SystemStats | null>(null);
     const [modelsLoading, setModelsLoading] = useState(false);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
     const pollingInterval = useRef<any>(null);
 
     const fetchModels = async () => {
@@ -42,13 +44,26 @@ export function DownloadModel() {
             console.error('Failed to fetch tasks', err);
         }
     };
+    
+    const fetchStats = async () => {
+        try {
+            const data = await api.systemStats();
+            setStats(data);
+        } catch (err) {
+            console.error('Failed to fetch stats', err);
+        }
+    };
 
     useEffect(() => {
         fetchModels();
         fetchTasks();
+        fetchStats();
         
         // Initial polling
-        pollingInterval.current = setInterval(fetchTasks, 1500);
+        pollingInterval.current = setInterval(() => {
+            fetchTasks();
+            fetchStats();
+        }, 1500);
 
         return () => {
             if (pollingInterval.current) clearInterval(pollingInterval.current);
@@ -90,6 +105,30 @@ export function DownloadModel() {
         }
     };
 
+    const handleLoadModel = async (filename: string) => {
+        setActionLoading(filename);
+        try {
+            await api.loadModel(filename);
+            await fetchModels();
+        } catch (err: any) {
+            alert(err.response?.data?.detail || 'Failed to load model.');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleUnloadModel = async (filename: string) => {
+        setActionLoading(filename);
+        try {
+            await api.unloadModel(filename);
+            await fetchModels();
+        } catch (err: any) {
+            alert(err.response?.data?.detail || 'Failed to unload model.');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
     const formatSize = (bytes: number) => {
         if (bytes >= 1024 * 1024 * 1024) {
             return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
@@ -102,6 +141,60 @@ export function DownloadModel() {
 
     return (
         <div className="space-y-8">
+            {/* System Stats */}
+            {stats && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Card className="border-border/50 bg-card/60 backdrop-blur-sm shadow-md">
+                        <CardContent className="p-4 flex items-center justify-between">
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">CPU</p>
+                                <p className="text-xl font-bold">{stats.cpu_percent.toFixed(1)}%</p>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500">
+                                <Cpu className="h-5 w-5" />
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-border/50 bg-card/60 backdrop-blur-sm shadow-md">
+                        <CardContent className="p-4 flex items-center justify-between">
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">RAM</p>
+                                <p className="text-xl font-bold">{(stats.memory_used / 1e9).toFixed(1)} GB</p>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-500">
+                                <Activity className="h-5 w-5" />
+                            </div>
+                        </CardContent>
+                    </Card>
+                    {typeof stats.gpu_percent === 'number' && (
+                        <Card className="border-border/50 bg-card/60 backdrop-blur-sm shadow-md">
+                            <CardContent className="p-4 flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">GPU</p>
+                                    <p className="text-xl font-bold">{stats.gpu_percent.toFixed(1)}%</p>
+                                </div>
+                                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500">
+                                    <Activity className="h-5 w-5" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                    {typeof stats.vram_used === 'number' && typeof stats.vram_total === 'number' && (
+                        <Card className="border-border/50 bg-card/60 backdrop-blur-sm shadow-md">
+                            <CardContent className="p-4 flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">VRAM</p>
+                                    <p className="text-xl font-bold">{(stats.vram_used / 1e9).toFixed(1)} GB</p>
+                                </div>
+                                <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-500">
+                                    <HardDrive className="h-5 w-5" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+            )}
+
             {/* Download Form */}
             <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-xl">
                 <CardHeader>
@@ -277,6 +370,37 @@ export function DownloadModel() {
                                     <span className="text-sm font-mono text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md">
                                         {formatSize(model.size)}
                                     </span>
+                                    {model.is_loaded ? (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleUnloadModel(model.filename)}
+                                            disabled={actionLoading === model.filename}
+                                            className="h-8 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-500"
+                                        >
+                                            {actionLoading === model.filename ? (
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            ) : (
+                                                <Square className="h-4 w-4 mr-2" />
+                                            )}
+                                            Unload
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleLoadModel(model.filename)}
+                                            disabled={actionLoading === model.filename}
+                                            className="h-8 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-500"
+                                        >
+                                            {actionLoading === model.filename ? (
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            ) : (
+                                                <Play className="h-4 w-4 mr-2" />
+                                            )}
+                                            Load
+                                        </Button>
+                                    )}
                                     <Button
                                         variant="ghost"
                                         size="icon"

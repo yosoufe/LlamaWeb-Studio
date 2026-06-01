@@ -3,3 +3,6 @@ uvicorn
 huggingface-hub
 python-multipart
 pydantic
+httpx
+psutil
+pynvml
