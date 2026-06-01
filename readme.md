@@ -98,5 +98,13 @@ services:
     environment:
       - MODELS_DIR=/models
       - HF_TOKEN=${HF_TOKEN:-}
+      - LLAMA_CPP_SERVER_URL=${LLAMA_CPP_SERVER_URL:-http://localhost:8080}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     restart: unless-stopped
 ```
