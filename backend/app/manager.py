@@ -180,12 +180,12 @@ class ModelManager:
 
     async def load_model(self, filename: str):
         """Sends a request to load a model to the external llama.cpp server."""
-        # The server alias is the filename without .gguf extension
         alias = filename[:-5] if filename.endswith(".gguf") else filename
         async with httpx.AsyncClient() as client:
             res = await client.post(
-                f"{LLAMA_CPP_SERVER_URL}/v1/models/{alias}/load",
-                timeout=60.0  # Loading into GPU takes time
+                f"{LLAMA_CPP_SERVER_URL}/models/load",
+                json={"model": alias},
+                timeout=60.0
             )
             res.raise_for_status()
 
@@ -194,7 +194,8 @@ class ModelManager:
         alias = filename[:-5] if filename.endswith(".gguf") else filename
         async with httpx.AsyncClient() as client:
             res = await client.post(
-                f"{LLAMA_CPP_SERVER_URL}/v1/models/{alias}/unload",
+                f"{LLAMA_CPP_SERVER_URL}/models/unload",
+                json={"model": alias},
                 timeout=10.0
             )
             res.raise_for_status()

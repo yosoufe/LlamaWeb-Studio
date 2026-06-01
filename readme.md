@@ -121,7 +121,7 @@ services:
     environment:
       - MODELS_DIR=/models
       - HF_TOKEN=${HF_TOKEN:-}
-      - LLAMA_CPP_SERVER_URL=${LLAMA_CPP_SERVER_URL:-http://localhost:8080}
+      - LLAMA_CPP_SERVER_URL=http://llama-cpp:10000
     deploy:
       resources:
         reservations:
