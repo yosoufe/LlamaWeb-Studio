@@ -12,6 +12,7 @@ class ModelInfo(BaseModel):
     size: int
     path: str
     is_loaded: bool = False
+    status: str = "unloaded"  # loaded, loading, sleeping, unloaded, not_registered
 
 
 class DownloadTask(BaseModel):

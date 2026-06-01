@@ -88,6 +88,28 @@ This setup pulls the unified image from the registry.
 version: '3.8'
 
 services:
+  image: ghcr.io/yosoufe/llama.cpp:server-cuda12.4
+    container_name: llama-cpp-backend
+    restart: unless-stopped
+    ports:
+      - "10000:10000"
+    volumes:
+      - ./models:/models
+    environment:
+      - LLAMA_ARG_HOST=0.0.0.0
+      - LLAMA_ARG_PORT=10000
+      - LLAMA_ARG_MODELS_DIR=/models
+      - LLAMA_ARG_MODELS_AUTOLOAD=1
+      - LLAMA_ARG_MODELS_PRESET=/models/presets.ini
+    command: ["--no-warmup", "--sleep-idle-seconds", "3600"] 
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
   hf-downloader-ui:
     image: ghcr.io/yosoufe/hf-downloader-ui:latest
     container_name: hf-downloader-ui

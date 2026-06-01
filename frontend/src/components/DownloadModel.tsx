@@ -63,7 +63,8 @@ export function DownloadModel() {
         pollingInterval.current = setInterval(() => {
             fetchTasks();
             fetchStats();
-        }, 1500);
+            fetchModels(); // keep model status in sync with server
+        }, 3000);
 
         return () => {
             if (pollingInterval.current) clearInterval(pollingInterval.current);
@@ -352,66 +353,91 @@ export function DownloadModel() {
                                 <p className="text-sm">No models downloaded yet.</p>
                             </div>
                         )}
-                        {models.map((model) => (
-                            <div
-                                key={model.filename}
-                                className="flex items-center justify-between p-4 border border-border/30 rounded-lg bg-background/30 hover:bg-background/50 transition-colors group"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-md bg-muted/50 group-hover:bg-muted/80 transition-colors">
-                                        <FileBox className="h-4 w-4 text-muted-foreground" />
+                        {models.map((model) => {
+                            const isNotRegistered = model.status === 'not_registered';
+                            const statusColors: Record<string, string> = {
+                                loaded: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+                                loading: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+                                sleeping: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+                                unloaded: 'bg-muted/50 text-muted-foreground border-border/30',
+                                not_registered: 'bg-muted/30 text-muted-foreground/60 border-border/20',
+                            };
+                            const badgeClass = statusColors[model.status] ?? statusColors.unloaded;
+
+                            return (
+                                <div
+                                    key={model.filename}
+                                    className="flex items-center justify-between p-4 border border-border/30 rounded-lg bg-background/30 hover:bg-background/50 transition-colors group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-md bg-muted/50 group-hover:bg-muted/80 transition-colors">
+                                            <FileBox className="h-4 w-4 text-muted-foreground" />
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-sm">{model.filename}</span>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${badgeClass}`}>
+                                                    {model.status.replace('_', ' ')}
+                                                </span>
+                                                {isNotRegistered && (
+                                                    <span className="text-xs text-muted-foreground/60">not known by server</span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span className="font-medium text-sm">{model.filename}</span>
-                                        <p className="text-xs text-muted-foreground mt-0.5">{model.path}</p>
+                                    <div className="flex items-center gap-4">
+                                        {model.size > 0 && (
+                                            <span className="text-sm font-mono text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md">
+                                                {formatSize(model.size)}
+                                            </span>
+                                        )}
+                                        {!isNotRegistered && (
+                                            model.is_loaded ? (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleUnloadModel(model.filename)}
+                                                    disabled={actionLoading === model.filename || model.status === 'loading'}
+                                                    className="h-8 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-500"
+                                                >
+                                                    {actionLoading === model.filename ? (
+                                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                    ) : (
+                                                        <Square className="h-4 w-4 mr-2" />
+                                                    )}
+                                                    Unload
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleLoadModel(model.filename)}
+                                                    disabled={actionLoading === model.filename}
+                                                    className="h-8 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-500"
+                                                >
+                                                    {actionLoading === model.filename ? (
+                                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                    ) : (
+                                                        <Play className="h-4 w-4 mr-2" />
+                                                    )}
+                                                    Load
+                                                </Button>
+                                            )
+                                        )}
+                                        {model.path && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleDelete(model.filename)}
+                                                className="h-8 w-8 text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition-all"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <span className="text-sm font-mono text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md">
-                                        {formatSize(model.size)}
-                                    </span>
-                                    {model.is_loaded ? (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleUnloadModel(model.filename)}
-                                            disabled={actionLoading === model.filename}
-                                            className="h-8 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-500"
-                                        >
-                                            {actionLoading === model.filename ? (
-                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                            ) : (
-                                                <Square className="h-4 w-4 mr-2" />
-                                            )}
-                                            Unload
-                                        </Button>
-                                    ) : (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleLoadModel(model.filename)}
-                                            disabled={actionLoading === model.filename}
-                                            className="h-8 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-500"
-                                        >
-                                            {actionLoading === model.filename ? (
-                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                            ) : (
-                                                <Play className="h-4 w-4 mr-2" />
-                                            )}
-                                            Load
-                                        </Button>
-                                    )}
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleDelete(model.filename)}
-                                        className="h-8 w-8 text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition-all"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </CardContent>
             </Card>

@@ -55,36 +55,70 @@ class ModelManager:
         os.makedirs(MODELS_DIR, exist_ok=True)
         self.tasks: Dict[str, DownloadTask] = {}
 
-    async def get_loaded_models(self) -> List[str]:
-        """Fetches the list of currently loaded models from the llama.cpp server."""
+    async def get_server_models(self) -> Dict[str, str]:
+        """Fetches all models from the llama.cpp server, returning alias -> status.value map."""
         try:
             async with httpx.AsyncClient() as client:
                 res = await client.get(f"{LLAMA_CPP_SERVER_URL}/v1/models", timeout=2.0)
                 if res.status_code == 200:
                     data = res.json()
-                    # data format: {"object": "list", "data": [{"id": "model.gguf", "object": "model"}]}
+                    # data format: {"object": "list", "data": [{"id": "alias", "status": {"value": "loaded|unloaded|loading|sleeping"}, ...}]}
                     if "data" in data:
-                        return [m["id"] for m in data["data"]]
+                        return {
+                            m["id"]: m.get("status", {}).get("value", "unloaded")
+                            for m in data["data"]
+                        }
         except Exception as e:
-            logger.warning(f"Could not fetch loaded models from {LLAMA_CPP_SERVER_URL}: {e}")
-        return []
+            logger.warning(f"Could not fetch models from {LLAMA_CPP_SERVER_URL}: {e}")
+        return {}
 
     async def list_downloaded_models(self) -> List[ModelInfo]:
-        """Lists all GGUF models in the models directory and checks if they are loaded."""
-        models = []
-        if not os.path.exists(MODELS_DIR):
-            return []
-            
-        loaded_model_ids = await self.get_loaded_models()
+        """Lists models from the llama.cpp server + any local .gguf files not yet registered."""
+        # Build a map of local files: alias -> (filename, size, path)
+        local_files: Dict[str, tuple] = {}
+        if os.path.exists(MODELS_DIR):
+            for f in os.listdir(MODELS_DIR):
+                if f.endswith(".gguf"):
+                    path = os.path.join(MODELS_DIR, f)
+                    alias = f[:-5]  # strip .gguf
+                    local_files[alias] = (f, os.path.getsize(path), path)
 
-        for f in os.listdir(MODELS_DIR):
-            if f.endswith(".gguf"):
-                path = os.path.join(MODELS_DIR, f)
-                size = os.path.getsize(path)
-                # Check if this filename is in the list of loaded models (or just match on id)
-                # llama.cpp server usually uses the full path or filename depending on how it was loaded
-                is_loaded = any(f in lm or lm in f for lm in loaded_model_ids)
-                models.append(ModelInfo(filename=f, size=size, path=path, is_loaded=is_loaded))
+        # Get all models the server knows about (alias -> status)
+        server_models = await self.get_server_models()
+
+        seen_aliases = set()
+        models = []
+
+        # First: all server-known models (they can be loaded/unloaded)
+        for alias, status_val in server_models.items():
+            seen_aliases.add(alias)
+            is_loaded = status_val in ("loaded", "loading", "sleeping")
+            if alias in local_files:
+                filename, size, path = local_files[alias]
+            else:
+                # Server knows about it but we don't have it locally — show with alias as filename
+                filename = f"{alias}.gguf"
+                size = 0
+                path = ""
+            models.append(ModelInfo(
+                filename=filename,
+                size=size,
+                path=path,
+                is_loaded=is_loaded,
+                status=status_val,
+            ))
+
+        # Second: local files the server doesn't know about (downloaded but not registered)
+        for alias, (filename, size, path) in local_files.items():
+            if alias not in seen_aliases:
+                models.append(ModelInfo(
+                    filename=filename,
+                    size=size,
+                    path=path,
+                    is_loaded=False,
+                    status="not_registered",
+                ))
+
         return models
 
     def get_tasks(self) -> List[DownloadTask]:
@@ -146,22 +180,21 @@ class ModelManager:
 
     async def load_model(self, filename: str):
         """Sends a request to load a model to the external llama.cpp server."""
-        # llama.cpp server requires the model name to load it from its models-dir
-        # we assume it's running with --models-dir /models
+        # The server alias is the filename without .gguf extension
+        alias = filename[:-5] if filename.endswith(".gguf") else filename
         async with httpx.AsyncClient() as client:
             res = await client.post(
-                f"{LLAMA_CPP_SERVER_URL}/models/load",
-                json={"model": filename},
-                timeout=30.0 # Loading takes time
+                f"{LLAMA_CPP_SERVER_URL}/v1/models/{alias}/load",
+                timeout=60.0  # Loading into GPU takes time
             )
             res.raise_for_status()
-            
+
     async def unload_model(self, filename: str):
-        """Sends a request to unload a model to the external llama.cpp server."""
+        """Sends a request to unload a model from the external llama.cpp server."""
+        alias = filename[:-5] if filename.endswith(".gguf") else filename
         async with httpx.AsyncClient() as client:
             res = await client.post(
-                f"{LLAMA_CPP_SERVER_URL}/models/unload",
-                json={"model": filename},
+                f"{LLAMA_CPP_SERVER_URL}/v1/models/{alias}/unload",
                 timeout=10.0
             )
             res.raise_for_status()

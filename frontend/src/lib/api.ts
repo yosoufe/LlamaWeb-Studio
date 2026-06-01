@@ -7,6 +7,7 @@ export interface ModelInfo {
     size: number;
     path: string;
     is_loaded: boolean;
+    status: string; // loaded, loading, sleeping, unloaded, not_registered
 }
 
 export interface DownloadTask {
