@@ -88,7 +88,8 @@ This setup pulls the unified image from the registry.
 version: '3.8'
 
 services:
-  image: ghcr.io/yosoufe/llama.cpp:server-cuda12.4
+  llama-cpp:
+    image: ghcr.io/yosoufe/llama.cpp:server-cuda12.4
     container_name: llama-cpp-backend
     restart: unless-stopped
     ports:
