@@ -160,7 +160,7 @@ export function DownloadModel() {
                         <CardContent className="p-4 flex items-center justify-between">
                             <div className="space-y-1">
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">RAM</p>
-                                <p className="text-xl font-bold">{(stats.memory_used / 1e9).toFixed(1)} GB</p>
+                                <p className="text-xl font-bold">{(stats.memory_used / 1e9).toFixed(1)} GB / {(stats.memory_total / 1e9).toFixed(1)} GB</p>
                             </div>
                             <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-500">
                                 <Activity className="h-5 w-5" />
@@ -185,7 +185,7 @@ export function DownloadModel() {
                             <CardContent className="p-4 flex items-center justify-between">
                                 <div className="space-y-1">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">VRAM</p>
-                                    <p className="text-xl font-bold">{(stats.vram_used / 1e9).toFixed(1)} GB</p>
+                                    <p className="text-xl font-bold">{(stats.vram_used / 1e9).toFixed(1)} GB / {(stats.vram_total / 1e9).toFixed(1)} GB</p>
                                 </div>
                                 <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-500">
                                     <HardDrive className="h-5 w-5" />
