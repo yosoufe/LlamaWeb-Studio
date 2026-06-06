@@ -11,7 +11,7 @@ try:
 except Exception:
     HAS_PYNVML = False
 
-from app.schema import ModelInfo, DownloadTask, SystemStats
+from app.schema import ModelInfo, DownloadTask, SystemStats, GPUStats
 
 logger = logging.getLogger(__name__)
 
@@ -201,26 +201,32 @@ class ModelManager:
             res.raise_for_status()
 
     def get_system_stats(self) -> SystemStats:
-        """Gets CPU, Memory, GPU and VRAM stats."""
+        """Gets CPU, Memory, GPU and VRAM stats for all GPUs."""
         # CPU & RAM
         cpu_percent = psutil.cpu_percent(interval=None) # Non-blocking
         mem = psutil.virtual_memory()
         
-        gpu_percent = None
-        vram_used = None
-        vram_total = None
+        gpu_stats_list = []
         
         if HAS_PYNVML:
             try:
-                # Get stats for GPU 0
-                handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-                mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                vram_total = mem_info.total
-                vram_used = mem_info.used
-                
-                # GPU Utilization
-                util = pynvml.nvmlDeviceGetUtilizationRates(handle)
-                gpu_percent = float(util.gpu)
+                device_count = pynvml.nvmlDeviceGetCount()
+                for i in range(device_count):
+                    handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                    name = pynvml.nvmlDeviceGetName(handle)
+                    if isinstance(name, bytes):
+                        name = name.decode('utf-8')
+                        
+                    mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                    util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                    
+                    gpu_stats_list.append(GPUStats(
+                        index=i,
+                        name=name,
+                        vram_used=mem_info.used,
+                        vram_total=mem_info.total,
+                        gpu_percent=float(util.gpu)
+                    ))
             except Exception as e:
                 logger.warning(f"Failed to get GPU stats: {e}")
                 
@@ -228,7 +234,5 @@ class ModelManager:
             cpu_percent=cpu_percent,
             memory_used=mem.used,
             memory_total=mem.total,
-            gpu_percent=gpu_percent,
-            vram_used=vram_used,
-            vram_total=vram_total
+            gpus=gpu_stats_list
         )

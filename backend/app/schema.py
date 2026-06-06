@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 
 
@@ -25,10 +25,16 @@ class DownloadTask(BaseModel):
     error: Optional[str] = None
 
 
+class GPUStats(BaseModel):
+    index: int
+    name: str
+    vram_used: int
+    vram_total: int
+    gpu_percent: float
+
+
 class SystemStats(BaseModel):
     cpu_percent: float
     memory_used: int
     memory_total: int
-    gpu_percent: Optional[float] = None
-    vram_used: Optional[int] = None
-    vram_total: Optional[int] = None
+    gpus: List[GPUStats] = []

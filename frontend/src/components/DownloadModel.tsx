@@ -167,32 +167,35 @@ export function DownloadModel() {
                             </div>
                         </CardContent>
                     </Card>
-                    {typeof stats.gpu_percent === 'number' && (
-                        <Card className="border-border/50 bg-card/60 backdrop-blur-sm shadow-md">
-                            <CardContent className="p-4 flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">GPU</p>
-                                    <p className="text-xl font-bold">{stats.gpu_percent.toFixed(1)}%</p>
+                    {stats.gpus.map((gpu) => (
+                        <Card key={gpu.index} className="border-border/50 bg-card/60 backdrop-blur-sm shadow-md col-span-2">
+                            <CardContent className="p-4 flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500">
+                                            <Activity className="h-4 w-4" />
+                                        </div>
+                                        <p className="text-xs font-bold uppercase tracking-wider">{gpu.name || `GPU ${gpu.index}`}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-lg font-bold text-emerald-500">{gpu.gpu_percent.toFixed(1)}% <span className="text-[10px] text-muted-foreground uppercase ml-1">Util</span></p>
+                                    </div>
                                 </div>
-                                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500">
-                                    <Activity className="h-5 w-5" />
+                                <div className="space-y-1.5">
+                                    <div className="flex justify-between items-center text-[10px] font-medium text-muted-foreground uppercase tracking-tighter">
+                                        <span>VRAM Usage</span>
+                                        <span>{(gpu.vram_used / 1e9).toFixed(1)} GB / {(gpu.vram_total / 1e9).toFixed(1)} GB</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-muted/30 rounded-full overflow-hidden">
+                                        <div 
+                                            className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-1000 ease-out"
+                                            style={{ width: `${(gpu.vram_used / gpu.vram_total) * 100}%` }}
+                                        />
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
-                    )}
-                    {typeof stats.vram_used === 'number' && typeof stats.vram_total === 'number' && (
-                        <Card className="border-border/50 bg-card/60 backdrop-blur-sm shadow-md">
-                            <CardContent className="p-4 flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">VRAM</p>
-                                    <p className="text-xl font-bold">{(stats.vram_used / 1e9).toFixed(1)} GB / {(stats.vram_total / 1e9).toFixed(1)} GB</p>
-                                </div>
-                                <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-500">
-                                    <HardDrive className="h-5 w-5" />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                    ))}
                 </div>
             )}
 

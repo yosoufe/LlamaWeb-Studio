@@ -20,13 +20,19 @@ export interface DownloadTask {
     error?: string;
 }
 
+export interface GPUStats {
+    index: number;
+    name: string;
+    vram_used: number;
+    vram_total: number;
+    gpu_percent: number;
+}
+
 export interface SystemStats {
     cpu_percent: number;
     memory_used: number;
     memory_total: number;
-    gpu_percent?: number;
-    vram_used?: number;
-    vram_total?: number;
+    gpus: GPUStats[];
 }
 
 export const api = {
