@@ -38,3 +38,7 @@ class SystemStats(BaseModel):
     memory_used: int
     memory_total: int
     gpus: List[GPUStats] = []
+
+
+class AppSettings(BaseModel):
+    idle_timeout: int = 300  # seconds

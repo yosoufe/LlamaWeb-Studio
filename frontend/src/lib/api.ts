@@ -35,6 +35,10 @@ export interface SystemStats {
     gpus: GPUStats[];
 }
 
+export interface AppSettings {
+    idle_timeout: number;
+}
+
 export const api = {
     listModels: async () => {
         const res = await axios.get<ModelInfo[]>(`${API_BASE}/models`);
@@ -73,6 +77,16 @@ export const api = {
     
     systemStats: async () => {
         const res = await axios.get<SystemStats>(`${API_BASE}/system/stats`);
+        return res.data;
+    },
+
+    getSettings: async () => {
+        const res = await axios.get<AppSettings>(`${API_BASE}/settings`);
+        return res.data;
+    },
+
+    updateSettings: async (settings: AppSettings) => {
+        const res = await axios.post(`${API_BASE}/settings`, settings);
         return res.data;
     }
 };

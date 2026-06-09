@@ -1,8 +1,9 @@
 import logging
+import asyncio
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from app.manager import ModelManager
-from app.schema import DownloadRequest
+from app.schema import DownloadRequest, AppSettings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,6 +29,32 @@ import os
 @app.get("/api")
 async def root():
     return {"message": "HF Model Downloader API is running"}
+
+
+@app.get("/api/settings")
+async def get_settings():
+    return manager.settings
+
+
+@app.post("/api/settings")
+async def update_settings(settings: AppSettings):
+    manager.update_settings(settings)
+    return {"status": "success"}
+
+
+async def idle_monitor():
+    """Background task to periodically check for idleness."""
+    while True:
+        try:
+            await manager.check_idleness()
+        except Exception as e:
+            logger.error(f"Error in idle monitor: {e}")
+        await asyncio.sleep(10)
+
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(idle_monitor())
 
 
 @app.get("/api/models")

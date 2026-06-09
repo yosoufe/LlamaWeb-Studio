@@ -1,5 +1,7 @@
 import os
 import logging
+import time
+import json
 from typing import List, Dict, Optional
 from huggingface_hub import hf_hub_download
 import httpx
@@ -11,7 +13,7 @@ try:
 except Exception:
     HAS_PYNVML = False
 
-from app.schema import ModelInfo, DownloadTask, SystemStats, GPUStats
+from app.schema import ModelInfo, DownloadTask, SystemStats, GPUStats, AppSettings
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,9 @@ class ModelManager:
     def __init__(self):
         os.makedirs(MODELS_DIR, exist_ok=True)
         self.tasks: Dict[str, DownloadTask] = {}
+        self.settings_path = os.path.join(MODELS_DIR, "settings.json")
+        self.settings = self.load_settings()
+        self.last_active_time = time.time()
 
     async def get_server_models(self) -> Dict[str, str]:
         """Fetches all models from the llama.cpp server, returning alias -> status.value map."""
@@ -236,3 +241,54 @@ class ModelManager:
             memory_total=mem.total,
             gpus=gpu_stats_list
         )
+
+    def load_settings(self) -> AppSettings:
+        if os.path.exists(self.settings_path):
+            try:
+                with open(self.settings_path, "r") as f:
+                    data = json.load(f)
+                    return AppSettings(**data)
+            except Exception as e:
+                logger.error(f"Failed to load settings: {e}")
+        return AppSettings()
+
+    def save_settings(self):
+        try:
+            with open(self.settings_path, "w") as f:
+                json.dump(self.settings.dict(), f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to save settings: {e}")
+
+    def update_settings(self, settings: AppSettings):
+        self.settings = settings
+        self.save_settings()
+
+    async def check_idleness(self):
+        """Checks if llama.cpp is idle and unloads models if timeout reached."""
+        if self.settings.idle_timeout <= 0:
+            return
+
+        # Check if any model is loaded
+        server_models = await self.get_server_models()
+        loaded_aliases = [alias for alias, status in server_models.items() if status in ("loaded", "loading", "sleeping")]
+        
+        if not loaded_aliases:
+            self.last_active_time = time.time()  # Reset timer if nothing is loaded anyway
+            return
+
+        # Check GPU utility
+        stats = self.get_system_stats()
+        is_active = any(gpu.gpu_percent > 0.5 for gpu in stats.gpus)
+
+        if is_active:
+            self.last_active_time = time.time()
+        else:
+            idle_duration = time.time() - self.last_active_time
+            if idle_duration > self.settings.idle_timeout:
+                logger.info(f"Idle for {idle_duration:.1f}s (threshold {self.settings.idle_timeout}s). Unloading all models.")
+                for alias in loaded_aliases:
+                    try:
+                        await self.unload_model(alias)
+                    except Exception as e:
+                        logger.error(f"Failed to auto-unload {alias}: {e}")
+                self.last_active_time = time.time() # Reset timer after unloading

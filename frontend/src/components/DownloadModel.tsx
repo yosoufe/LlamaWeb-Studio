@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
-import type { ModelInfo, DownloadTask, SystemStats } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Loader2, HardDrive, FileBox, RefreshCw, CheckCircle2, XCircle, AlertCircle, Trash2, Activity, Cpu, Play, Square } from 'lucide-react';
+import { Download, Loader2, HardDrive, FileBox, RefreshCw, CheckCircle2, XCircle, AlertCircle, Trash2, Activity, Cpu, Play, Square, Settings2, Clock } from 'lucide-react';
+import type { ModelInfo, DownloadTask, SystemStats, AppSettings } from '@/lib/api';
 
 export function DownloadModel() {
     const [repoId, setRepoId] = useState('');
@@ -16,6 +16,8 @@ export function DownloadModel() {
     const [stats, setStats] = useState<SystemStats | null>(null);
     const [modelsLoading, setModelsLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [settings, setSettings] = useState<AppSettings>({ idle_timeout: 300 });
+    const [settingsLoading, setSettingsLoading] = useState(false);
     const pollingInterval = useRef<any>(null);
 
     const fetchModels = async () => {
@@ -54,10 +56,20 @@ export function DownloadModel() {
         }
     };
 
+    const fetchSettings = async () => {
+        try {
+            const data = await api.getSettings();
+            setSettings(data);
+        } catch (err) {
+            console.error('Failed to fetch settings', err);
+        }
+    };
+
     useEffect(() => {
         fetchModels();
         fetchTasks();
         fetchStats();
+        fetchSettings();
         
         // Initial polling
         pollingInterval.current = setInterval(() => {
@@ -130,6 +142,19 @@ export function DownloadModel() {
         }
     };
 
+    const handleUpdateSettings = async (newTimeout: number) => {
+        setSettingsLoading(true);
+        try {
+            await api.updateSettings({ idle_timeout: newTimeout });
+            setSettings({ idle_timeout: newTimeout });
+        } catch (err) {
+            console.error('Failed to update settings', err);
+            alert('Failed to update settings');
+        } finally {
+            setSettingsLoading(false);
+        }
+    };
+
     const formatSize = (bytes: number) => {
         if (bytes >= 1024 * 1024 * 1024) {
             return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
@@ -199,89 +224,148 @@ export function DownloadModel() {
                 </div>
             )}
 
-            {/* Download Form */}
-            <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-xl">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-xl">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-                            <Download className="h-5 w-5 text-white" />
+            {/* Download and Settings Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Download Form */}
+                <Card className="lg:col-span-2 border-border/50 bg-card/80 backdrop-blur-sm shadow-xl">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-xl">
+                            <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
+                                <Download className="h-5 w-5 text-white" />
+                            </div>
+                            New Download
+                        </CardTitle>
+                        <CardDescription className="text-muted-foreground/80">
+                            Enter the Hugging Face repository ID and the model filename.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                    Repository ID
+                                </label>
+                                <Input
+                                    placeholder="e.g. TheBloke/Mistral-7B-v0.1-GGUF"
+                                    value={repoId}
+                                    onChange={(e) => { setRepoId(e.target.value); setError(null); }}
+                                    className="bg-background/50 border-border/40 focus:border-blue-500/50 transition-colors"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                    Filename
+                                </label>
+                                <Input
+                                    placeholder="e.g. mistral-7b-v0.1.Q4_K_M.gguf"
+                                    value={filename}
+                                    onChange={(e) => { setFilename(e.target.value); setError(null); }}
+                                    className="bg-background/50 border-border/40 focus:border-blue-500/50 transition-colors"
+                                />
+                            </div>
                         </div>
-                        New Download
-                    </CardTitle>
-                    <CardDescription className="text-muted-foreground/80">
-                        Enter the Hugging Face repository ID and the model filename.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                Repository ID
-                            </label>
-                            <Input
-                                placeholder="e.g. TheBloke/Mistral-7B-v0.1-GGUF"
-                                value={repoId}
-                                onChange={(e) => { setRepoId(e.target.value); setError(null); }}
-                                className="bg-background/50 border-border/40 focus:border-blue-500/50 transition-colors"
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                Filename
-                            </label>
-                            <Input
-                                placeholder="e.g. mistral-7b-v0.1.Q4_K_M.gguf"
-                                value={filename}
-                                onChange={(e) => { setFilename(e.target.value); setError(null); }}
-                                className="bg-background/50 border-border/40 focus:border-blue-500/50 transition-colors"
-                            />
-                        </div>
-                    </div>
 
-                    {error && (
-                        <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                            <AlertCircle className="h-4 w-4" /> {error}
-                        </div>
-                    )}
-
-                    <Button
-                        onClick={handleDownload}
-                        disabled={loading || !repoId || !filename}
-                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/20 transition-all duration-300 hover:shadow-blue-500/40 disabled:opacity-40 disabled:shadow-none"
-                    >
-                        {loading ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                            <Download className="mr-2 h-4 w-4" />
+                        {error && (
+                            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                                <AlertCircle className="h-4 w-4" /> {error}
+                            </div>
                         )}
-                        Start Download
-                    </Button>
 
-                    <div className="pt-4 border-t border-border/20">
-                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-3 opacity-70">
-                            Quick Start Examples
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => { setRepoId('Qwen/Qwen2.5-0.5B-Instruct-GGUF'); setFilename('qwen2.5-0.5b-instruct-q4_k_m.gguf'); }}
-                                className="text-[11px] h-8 bg-background/30 border-border/40 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all"
-                            >
-                                Qwen 2.5 (0.39 GB)
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => { setRepoId('microsoft/Phi-3-mini-4k-instruct-gguf'); setFilename('Phi-3-mini-4k-instruct-q4.gguf'); }}
-                                className="text-[11px] h-8 bg-background/30 border-border/40 hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all"
-                            >
-                                Phi-3 Mini (2.2 GB)
-                            </Button>
+                        <Button
+                            onClick={handleDownload}
+                            disabled={loading || !repoId || !filename}
+                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg shadow-blue-500/20 transition-all duration-300 hover:shadow-blue-500/40 disabled:opacity-40 disabled:shadow-none"
+                        >
+                            {loading ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <Download className="mr-2 h-4 w-4" />
+                            )}
+                            Start Download
+                        </Button>
+
+                        <div className="pt-4 border-t border-border/20">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-3 opacity-70">
+                                Quick Start Examples
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => { setRepoId('Qwen/Qwen2.5-0.5B-Instruct-GGUF'); setFilename('qwen2.5-0.5b-instruct-q4_k_m.gguf'); }}
+                                    className="text-[11px] h-8 bg-background/30 border-border/40 hover:bg-blue-500/10 hover:border-blue-500/30 transition-all"
+                                >
+                                    Qwen 2.5 (0.39 GB)
+                                </Button>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => { setRepoId('microsoft/Phi-3-mini-4k-instruct-gguf'); setFilename('Phi-3-mini-4k-instruct-q4.gguf'); }}
+                                    className="text-[11px] h-8 bg-background/30 border-border/40 hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all"
+                                >
+                                    Phi-3 Mini (2.2 GB)
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+
+                {/* Settings Card */}
+                <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-xl">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-xl">
+                            <div className="p-2 rounded-lg bg-gradient-to-br from-slate-600 to-slate-800">
+                                <Settings2 className="h-5 w-5 text-white" />
+                            </div>
+                            Service Settings
+                        </CardTitle>
+                        <CardDescription className="text-muted-foreground/80">
+                            Configure automatic GPU behavior.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                                    <Clock className="h-3 w-3" />
+                                    Idle GPU Timeout
+                                </label>
+                                <span className="text-[10px] font-mono bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded">
+                                    {settings.idle_timeout}s
+                                </span>
+                            </div>
+                            <div className="flex gap-2">
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    placeholder="Seconds"
+                                    value={settings.idle_timeout}
+                                    onChange={(e) => setSettings({ ...settings, idle_timeout: parseInt(e.target.value) || 0 })}
+                                    className="bg-background/50 border-border/40 focus:border-blue-500/50 transition-colors"
+                                />
+                                <Button
+                                    size="sm"
+                                    onClick={() => handleUpdateSettings(settings.idle_timeout)}
+                                    disabled={settingsLoading}
+                                    className="bg-slate-700 hover:bg-slate-600 text-white"
+                                >
+                                    {settingsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                                </Button>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground/70 leading-relaxed italic">
+                                Models will be automatically unloaded from the GPU if no activity is detected for this duration. Use 0 to disable.
+                            </p>
+                        </div>
+                        
+                        <div className="pt-4 border-t border-border/20">
+                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                               Idle Monitor Active
+                           </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Active Downloads */}
             {activeTasks.length > 0 && (
