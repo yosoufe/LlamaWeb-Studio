@@ -69,7 +69,7 @@ async def list_tasks():
 
 @app.get("/api/system/stats")
 async def system_stats():
-    return manager.get_system_stats()
+    return await manager.get_system_stats()
 
 
 @app.post("/api/models/{filename}/load")

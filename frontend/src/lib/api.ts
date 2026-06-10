@@ -33,6 +33,8 @@ export interface SystemStats {
     memory_used: number;
     memory_total: number;
     gpus: GPUStats[];
+    idle_duration: number;
+    is_active: boolean;
 }
 
 export interface AppSettings {

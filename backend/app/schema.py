@@ -38,6 +38,8 @@ class SystemStats(BaseModel):
     memory_used: int
     memory_total: int
     gpus: List[GPUStats] = []
+    idle_duration: float = 0.0
+    is_active: bool = False
 
 
 class AppSettings(BaseModel):

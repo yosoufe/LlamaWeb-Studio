@@ -8,21 +8,21 @@ services:
     ports:
       - "10000:10000"
     volumes:
-      - ./models:/models
+      - ./models_test_docker:/models
     environment:
       - LLAMA_ARG_HOST=0.0.0.0
       - LLAMA_ARG_PORT=10000
       - LLAMA_ARG_MODELS_DIR=/models
       - LLAMA_ARG_MODELS_AUTOLOAD=1
       - LD_LIBRARY_PATH=/app:/usr/local/lib
-    command: ["--no-warmup", "--sleep-idle-seconds", "3600"]
+    command: [ "--no-warmup", "--sleep-idle-seconds", "3600" ]
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
 
   hf-downloader-ui:
     build: .
@@ -30,7 +30,7 @@ services:
     ports:
       - "5173:5173"
     volumes:
-      - ./models:/models
+      - ./models_test_docker:/models
       - ./backend/app:/app/app
     environment:
       - MODELS_DIR=/models
@@ -42,9 +42,9 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
     # During dev, we still use --reload for backend changes
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5173", "--reload"]
+    command: [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5173", "--reload" ]
     restart: unless-stopped
     depends_on:
       - llama-cpp

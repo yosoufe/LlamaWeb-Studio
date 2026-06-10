@@ -186,6 +186,7 @@ class ModelManager:
     async def load_model(self, filename: str):
         """Sends a request to load a model to the external llama.cpp server."""
         alias = filename[:-5] if filename.endswith(".gguf") else filename
+        logger.info(f"Requesting llama.cpp to load model: {alias}")
         async with httpx.AsyncClient() as client:
             res = await client.post(
                 f"{LLAMA_CPP_SERVER_URL}/models/load",
@@ -205,7 +206,18 @@ class ModelManager:
             )
             res.raise_for_status()
 
-    def get_system_stats(self) -> SystemStats:
+    async def get_server_slots(self) -> List[Dict]:
+        """Fetches all slots from the llama.cpp server to check activity."""
+        try:
+            async with httpx.AsyncClient() as client:
+                res = await client.get(f"{LLAMA_CPP_SERVER_URL}/slots", timeout=2.0)
+                if res.status_code == 200:
+                    return res.json()
+        except Exception as e:
+            logger.warning(f"Could not fetch slots from {LLAMA_CPP_SERVER_URL}: {e}")
+        return []
+
+    async def get_system_stats(self) -> SystemStats:
         """Gets CPU, Memory, GPU and VRAM stats for all GPUs."""
         # CPU & RAM
         cpu_percent = psutil.cpu_percent(interval=None) # Non-blocking
@@ -235,11 +247,32 @@ class ModelManager:
             except Exception as e:
                 logger.warning(f"Failed to get GPU stats: {e}")
                 
+        # Calculate idleness state for the UI
+        idle_duration = time.time() - self.last_active_time
+        
+        # Check active status logic (mirrors check_idleness)
+        server_models = await self.get_server_models()
+        loaded_aliases = [alias for alias, status in server_models.items() if status in ("loaded", "loading", "sleeping")]
+        
+        is_active = False
+        if loaded_aliases:
+            slots = await self.get_server_slots()
+            is_loading = any(status == "loading" for status in server_models.values())
+            
+            if is_loading:
+                is_active = True
+            elif not slots:
+                is_active = any(gpu.gpu_percent > 0.5 for gpu in gpu_stats_list)
+            else:
+                is_active = any(slot.get("state", 0) != 0 for slot in slots)
+
         return SystemStats(
             cpu_percent=cpu_percent,
             memory_used=mem.used,
             memory_total=mem.total,
-            gpus=gpu_stats_list
+            gpus=gpu_stats_list,
+            idle_duration=idle_duration,
+            is_active=is_active
         )
 
     def load_settings(self) -> AppSettings:
@@ -276,16 +309,28 @@ class ModelManager:
             self.last_active_time = time.time()  # Reset timer if nothing is loaded anyway
             return
 
-        # Check GPU utility
-        stats = self.get_system_stats()
-        is_active = any(gpu.gpu_percent > 0.5 for gpu in stats.gpus)
+        # Check llama.cpp activity via slots
+        slots = await self.get_server_slots()
+        
+        # If any model is currently loading, we are definitely NOT idle
+        is_loading = any(status == "loading" for status in server_models.values())
+        
+        if is_loading:
+            is_active = True
+        elif not slots:
+            # Check GPU utility as a fallback if no slots are reported but models are "loaded"
+            stats = await self.get_system_stats()
+            is_active = any(gpu.gpu_percent > 0.5 for gpu in stats.gpus)
+        else:
+            # If state is not 0 (idle), the slot is processing or busy
+            is_active = any(slot.get("state", 0) != 0 for slot in slots)
 
         if is_active:
             self.last_active_time = time.time()
         else:
             idle_duration = time.time() - self.last_active_time
             if idle_duration > self.settings.idle_timeout:
-                logger.info(f"Idle for {idle_duration:.1f}s (threshold {self.settings.idle_timeout}s). Unloading all models.")
+                logger.info(f"llama.cpp idle for {idle_duration:.1f}s (threshold {self.settings.idle_timeout}s). Unloading all models.")
                 for alias in loaded_aliases:
                     try:
                         await self.unload_model(alias)

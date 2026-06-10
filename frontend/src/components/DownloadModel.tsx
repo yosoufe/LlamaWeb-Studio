@@ -358,9 +358,28 @@ export function DownloadModel() {
                         </div>
                         
                         <div className="pt-4 border-t border-border/20">
-                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                               Idle Monitor Active
+                           <div className="flex flex-col gap-2">
+                               <div className="flex items-center gap-2 text-[10px] font-medium transition-all">
+                                   {stats?.is_active ? (
+                                       <>
+                                           <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.5)]"></div>
+                                           <span className="text-amber-500/90 tracking-wide uppercase">Llama.cpp Active</span>
+                                       </>
+                                   ) : (
+                                       <>
+                                           <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
+                                           <span className="text-emerald-500/90 tracking-wide uppercase">Llama.cpp Idle</span>
+                                       </>
+                                   )}
+                               </div>
+                               {!stats?.is_active && settings.idle_timeout > 0 && stats?.idle_duration !== undefined && (
+                                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70 bg-muted/20 px-2 py-1 rounded-md border border-border/10">
+                                       <Clock className="h-3 w-3 opacity-70" />
+                                       <span>Idle Duration: <span className="font-mono text-blue-400 font-bold">{Math.floor(stats.idle_duration)}s</span></span>
+                                       <span className="opacity-40">/</span>
+                                       <span>{settings.idle_timeout}s threshold</span>
+                                   </div>
+                               )}
                            </div>
                         </div>
                     </CardContent>
@@ -478,38 +497,36 @@ export function DownloadModel() {
                                                 {formatSize(model.size)}
                                             </span>
                                         )}
-                                        {!isNotRegistered && (
-                                            model.is_loaded ? (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleUnloadModel(model.filename)}
-                                                    disabled={actionLoading === model.filename || model.status === 'loading'}
-                                                    className="h-8 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-500"
-                                                >
-                                                    {actionLoading === model.filename ? (
-                                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                    ) : (
-                                                        <Square className="h-4 w-4 mr-2" />
-                                                    )}
-                                                    Unload
-                                                </Button>
-                                            ) : (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleLoadModel(model.filename)}
-                                                    disabled={actionLoading === model.filename}
-                                                    className="h-8 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-500"
-                                                >
-                                                    {actionLoading === model.filename ? (
-                                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                    ) : (
-                                                        <Play className="h-4 w-4 mr-2" />
-                                                    )}
-                                                    Load
-                                                </Button>
-                                            )
+                                        {model.is_loaded ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleUnloadModel(model.filename)}
+                                                disabled={actionLoading === model.filename || model.status === 'loading'}
+                                                className="h-8 text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-500"
+                                            >
+                                                {actionLoading === model.filename ? (
+                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                ) : (
+                                                    <Square className="h-4 w-4 mr-2" />
+                                                )}
+                                                Unload
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleLoadModel(model.filename)}
+                                                disabled={actionLoading === model.filename}
+                                                className="h-8 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-500"
+                                            >
+                                                {actionLoading === model.filename ? (
+                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                ) : (
+                                                    <Play className="h-4 w-4 mr-2" />
+                                                )}
+                                                Load
+                                            </Button>
                                         )}
                                         {model.path && (
                                             <Button
