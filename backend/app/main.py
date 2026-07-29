@@ -49,7 +49,7 @@ async def idle_monitor():
             await manager.check_idleness()
         except Exception as e:
             logger.error(f"Error in idle monitor: {e}")
-        await asyncio.sleep(10)
+        await asyncio.sleep(60)
 
 
 @app.on_event("startup")

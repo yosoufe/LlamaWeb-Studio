@@ -59,20 +59,31 @@ class ModelManager:
         self.settings_path = os.path.join(MODELS_DIR, "settings.json")
         self.settings = self.load_settings()
         self.last_active_time = time.time()
+        # Reuse a single HTTP client for all llama.cpp calls (connection pooling)
+        self._http = httpx.AsyncClient()
+        # Cache llama.cpp responses for 3s to avoid redundant round-trips
+        self._cache_models: Dict[str, str] = {}
+        self._cache_models_ts: float = 0.0
+        self._cache_slots: List[Dict] = []
+        self._cache_slots_ts: float = 0.0
+        # Only poll llama.cpp when a model has been loaded at least once
+        self._has_loaded_model: bool = False
 
-    async def get_server_models(self) -> Dict[str, str]:
+    async def get_server_models(self, use_cache: bool = False) -> Dict[str, str]:
         """Fetches all models from the llama.cpp server, returning alias -> status.value map."""
+        if use_cache and time.time() - self._cache_models_ts < 3.0:
+            return self._cache_models
         try:
-            async with httpx.AsyncClient() as client:
-                res = await client.get(f"{LLAMA_CPP_SERVER_URL}/v1/models", timeout=2.0)
-                if res.status_code == 200:
-                    data = res.json()
-                    # data format: {"object": "list", "data": [{"id": "alias", "status": {"value": "loaded|unloaded|loading|sleeping"}, ...}]}
-                    if "data" in data:
-                        return {
-                            m["id"]: m.get("status", {}).get("value", "unloaded")
-                            for m in data["data"]
-                        }
+            res = await self._http.get(f"{LLAMA_CPP_SERVER_URL}/v1/models", timeout=2.0)
+            if res.status_code == 200:
+                data = res.json()
+                if "data" in data:
+                    self._cache_models = {
+                        m["id"]: m.get("status", {}).get("value", "unloaded")
+                        for m in data["data"]
+                    }
+                    self._cache_models_ts = time.time()
+                    return self._cache_models
         except Exception as e:
             logger.warning(f"Could not fetch models from {LLAMA_CPP_SERVER_URL}: {e}")
         return {}
@@ -187,32 +198,34 @@ class ModelManager:
         """Sends a request to load a model to the external llama.cpp server."""
         alias = filename[:-5] if filename.endswith(".gguf") else filename
         logger.info(f"Requesting llama.cpp to load model: {alias}")
-        async with httpx.AsyncClient() as client:
-            res = await client.post(
-                f"{LLAMA_CPP_SERVER_URL}/models/load",
-                json={"model": alias},
-                timeout=60.0
-            )
-            res.raise_for_status()
+        res = await self._http.post(
+            f"{LLAMA_CPP_SERVER_URL}/models/load",
+            json={"model": alias},
+            timeout=60.0
+        )
+        res.raise_for_status()
+        self._has_loaded_model = True  # enable idle monitoring
 
     async def unload_model(self, filename: str):
         """Sends a request to unload a model from the external llama.cpp server."""
         alias = filename[:-5] if filename.endswith(".gguf") else filename
-        async with httpx.AsyncClient() as client:
-            res = await client.post(
-                f"{LLAMA_CPP_SERVER_URL}/models/unload",
-                json={"model": alias},
-                timeout=10.0
-            )
-            res.raise_for_status()
+        res = await self._http.post(
+            f"{LLAMA_CPP_SERVER_URL}/models/unload",
+            json={"model": alias},
+            timeout=10.0
+        )
+        res.raise_for_status()
 
-    async def get_server_slots(self) -> List[Dict]:
+    async def get_server_slots(self, use_cache: bool = False) -> List[Dict]:
         """Fetches all slots from the llama.cpp server to check activity."""
+        if use_cache and time.time() - self._cache_slots_ts < 3.0:
+            return self._cache_slots
         try:
-            async with httpx.AsyncClient() as client:
-                res = await client.get(f"{LLAMA_CPP_SERVER_URL}/slots", timeout=2.0)
-                if res.status_code == 200:
-                    return res.json()
+            res = await self._http.get(f"{LLAMA_CPP_SERVER_URL}/slots", timeout=2.0)
+            if res.status_code == 200:
+                self._cache_slots = res.json()
+                self._cache_slots_ts = time.time()
+                return self._cache_slots
         except Exception as e:
             logger.warning(f"Could not fetch slots from {LLAMA_CPP_SERVER_URL}: {e}")
         return []
@@ -250,13 +263,13 @@ class ModelManager:
         # Calculate idleness state for the UI
         idle_duration = time.time() - self.last_active_time
         
-        # Check active status logic (mirrors check_idleness)
-        server_models = await self.get_server_models()
+        # Check active status logic (mirrors check_idleness) — use cache to avoid duplicate calls
+        server_models = await self.get_server_models(use_cache=True)
         loaded_aliases = [alias for alias, status in server_models.items() if status in ("loaded", "loading", "sleeping")]
         
         is_active = False
         if loaded_aliases:
-            slots = await self.get_server_slots()
+            slots = await self.get_server_slots(use_cache=True)
             is_loading = any(status == "loading" for status in server_models.values())
             
             if is_loading:
@@ -301,6 +314,10 @@ class ModelManager:
         if self.settings.idle_timeout <= 0:
             return
 
+        # Skip all llama.cpp HTTP calls if no model has ever been loaded via this manager
+        if not self._has_loaded_model:
+            return
+
         # Check if any model is loaded
         server_models = await self.get_server_models()
         loaded_aliases = [alias for alias, status in server_models.items() if status in ("loaded", "loading", "sleeping")]
@@ -309,7 +326,7 @@ class ModelManager:
             self.last_active_time = time.time()  # Reset timer if nothing is loaded anyway
             return
 
-        # Check llama.cpp activity via slots
+        # Check llama.cpp activity via slots (fresh fetch — idleness check needs reliable data)
         slots = await self.get_server_slots()
         
         # If any model is currently loading, we are definitely NOT idle
@@ -336,4 +353,7 @@ class ModelManager:
                         await self.unload_model(alias)
                     except Exception as e:
                         logger.error(f"Failed to auto-unload {alias}: {e}")
-                self.last_active_time = time.time() # Reset timer after unloading
+                self.last_active_time = time.time()  # Reset timer after unloading
+        # If no models left loaded, reset flag so monitor stays quiet
+        if not any(s in ("loaded", "loading", "sleeping") for s in server_models.values()):
+            self._has_loaded_model = False
